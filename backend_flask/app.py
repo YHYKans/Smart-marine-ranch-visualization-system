@@ -4,7 +4,7 @@
 """
 
 # 导入必要的依赖
-from flask import Flask, jsonify, request, send_file, Response  # 确保包含Response
+from flask import Flask, jsonify, request, send_file, Response,send_from_directory  # 确保包含Response
 from flask_cors import CORS
 from dotenv import load_dotenv
 import config.DataVisualization as DataVisualization
@@ -17,9 +17,9 @@ load_dotenv()
 # 创建Flask应用实例
 
 #生产环境使用下面
-# app = Flask(__name__, static_folder='../frontend/build', static_url_path='')
+app = Flask(__name__, static_folder='../frontend/build', static_url_path='')
 #测试使用下面
-app = Flask(__name__)
+# app = Flask(__name__)
 PORT = int(os.environ.get('PORT', 3001))  # 设置端口，优先使用环境变量中的PORT，否则默认为3001
 
 # 配置中间件
@@ -45,9 +45,9 @@ app.register_blueprint(auth_bp, url_prefix='/api')  # 所有认证相关的路�
 
 # 调试的时候注释掉下面三行
 # 生产环境的时候使用下面三行
-# @app.route('/')
-# def serve():
-#     return send_from_directory(app.static_folder, 'index.html')
+@app.route('/')
+def serve():
+    return send_from_directory(app.static_folder, 'index.html')
 
 # 健康检查路由
 @app.route('/api/health', methods=['GET'])
