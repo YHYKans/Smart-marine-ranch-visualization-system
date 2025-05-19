@@ -17,9 +17,9 @@ load_dotenv()
 # 创建Flask应用实例
 
 #生产环境使用下面
-app = Flask(__name__, static_folder='../frontend/build', static_url_path='')
+# app = Flask(__name__, static_folder='../frontend/build', static_url_path='')
 #测试使用下面
-# app = Flask(__name__)
+app = Flask(__name__)
 PORT = int(os.environ.get('PORT', 3001))  # 设置端口，优先使用环境变量中的PORT，否则默认为3001
 
 # 配置中间件
@@ -45,9 +45,9 @@ app.register_blueprint(auth_bp, url_prefix='/api')  # 所有认证相关的路�
 
 # 调试的时候注释掉下面三行
 # 生产环境的时候使用下面三行
-@app.route('/')
-def serve():
-    return send_from_directory(app.static_folder, 'index.html')
+# @app.route('/')
+# def serve():
+#     return send_from_directory(app.static_folder, 'index.html')
 
 # 健康检查路由
 @app.route('/api/health', methods=['GET'])
@@ -86,18 +86,19 @@ def handle_exception(e):
 def handle_water_visualization():
     try:
         file_path = request.json.get('file_path')
+        target_column = request.json.get('target_column')
         if not file_path:
             return jsonify({"error": "未提供文件路径"}), 400
-        
+
         # 调用现有可视化函数
-        line_chart, pie_chart = DataVisualization.visualize_water_quality(file_path)
-        
+        line_chart, pie_chart = DataVisualization.visualize_water_quality(file_path, target_column)
+
         response = {
             "line_chart": line_chart if line_chart else None,
             "pie_chart": pie_chart if pie_chart else None
         }
         return jsonify(response)
-    
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -112,14 +113,21 @@ def handle_fish_visualization():
         df = DataVisualization.read_fish_data(fixed_path)
         if df is None:
             return jsonify({"error": "数据文件不存在"}), 404
-        
+        # 处理单个鱼种请求（新增逻辑）
+        species_name = request.form.get('species')  # 从POST表单获取鱼种名称
+        single_scatter = None
+        if species_name:
+            single_scatter = DataVisualization.generate_single_species_scatter(df, species_name)
+            if not single_scatter:
+                return jsonify({"error": f"未找到鱼种 '{species_name}' 的数据"}), 400
         # 生成图表
         bar_chart = DataVisualization.generate_bar_chart(df)
         scatter_chart = DataVisualization.generate_scatter_chart(df)
         
         return jsonify({
             "bar_chart": bar_chart,
-            "scatter_chart": scatter_chart
+            "scatter_chart": scatter_chart,
+            "single_species_scatter": single_scatter  # 新增返回字段
         })
     
     except Exception as e:

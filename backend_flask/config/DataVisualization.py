@@ -21,7 +21,7 @@ def clean_column_name(name):
     return re.sub(r'<[^>]*>', '', name).strip()
 
 
-def visualize_water_quality(file_path):
+def visualize_water_quality(file_path, target_column=None):
     try:
         # 检查文件是否存在
         if not os.path.exists(file_path):
@@ -183,45 +183,52 @@ def visualize_water_quality(file_path):
             print("提示: 请检查数据格式是否符合预期，特别是数值列是否包含非数字字符")
             return None, None  # 不抛出异常，优雅地退出函数
 
-        # 绘制每个数值列随时间的变化
-        plt.figure(figsize=(12, 8))
-
-        # 计算需要的行数和列数，每行显示 2 个子图
-        n_plots = len(numerical_columns)
-        n_rows = (n_plots + 1) // 2
-        n_cols = min(2, n_plots)
-
-        for i, col in enumerate(numerical_columns, 1):
-            plt.subplot(n_rows, n_cols, i)
-
-            # 获取绘图数据
-            x_data = df[x_column] if isinstance(x_column, str) else df.index
-            y_data = df[col]
-
-            # 过滤掉 NaN 值
-            mask = y_data.notna()
-            x_data = x_data[mask]
-            y_data = y_data[mask]
-
-            # 确保数据不为空
-            if len(x_data) > 0 and len(y_data) > 0:
-                plt.plot(x_data, y_data)
-                plt.title(f"{col} 随时间的变化")
-                plt.xlabel(x_label)
-                plt.ylabel(col)
-                plt.grid(True)
-            else:
-                plt.text(0.5, 0.5, '无有效数据', ha='center', va='center', transform=plt.gca().transAxes)
-                plt.title(f"{col} (无有效数据)")
-
-        # 将折线图保存到内存缓冲区
-        line_chart_buffer = BytesIO()  # 使用从 io 模块导入的 BytesIO
-        plt.tight_layout()
-        plt.savefig(line_chart_buffer, format='png')
-        line_chart_buffer.seek(0)
-        line_chart_data = line_chart_buffer.getvalue()
-        line_chart_base64 = base64.b64encode(line_chart_data).decode('utf-8')
-        plt.close()
+        # # 绘制每个数值列随时间的变化
+        # plt.figure(figsize=(12, 8))
+        #
+        # # 计算需要的行数和列数，每行显示 2 个子图
+        # n_plots = len(numerical_columns)
+        # n_rows = (n_plots + 1) // 2
+        # n_cols = min(2, n_plots)
+        #
+        # for i, col in enumerate(numerical_columns, 1):
+        #     plt.subplot(n_rows, n_cols, i)
+        #
+        #     # 获取绘图数据
+        #     x_data = df[x_column] if isinstance(x_column, str) else df.index
+        #     y_data = df[col]
+        #
+        #     # 过滤掉 NaN 值
+        #     mask = y_data.notna()
+        #     x_data = x_data[mask]
+        #     y_data = y_data[mask]
+        #
+        #     # 确保数据不为空
+        #     if len(x_data) > 0 and len(y_data) > 0:
+        #         plt.plot(x_data, y_data)
+        #         plt.title(f"{col} 随时间的变化")
+        #         plt.xlabel(x_label)
+        #         plt.ylabel(col)
+        #         plt.grid(True)
+        #     else:
+        #         plt.text(0.5, 0.5, '无有效数据', ha='center', va='center', transform=plt.gca().transAxes)
+        #         plt.title(f"{col} (无有效数据)")
+        #
+        # # 将折线图保存到内存缓冲区
+        # line_chart_buffer = BytesIO()  # 使用从 io 模块导入的 BytesIO
+        # plt.tight_layout()
+        # plt.savefig(line_chart_buffer, format='png')
+        # line_chart_buffer.seek(0)
+        # line_chart_data = line_chart_buffer.getvalue()
+        # line_chart_base64 = base64.b64encode(line_chart_data).decode('utf-8')
+        # plt.close()
+        # 绘制所有指标图表（默认）
+        if target_column:
+            print(target_column)
+            single_line_chart = plot_time_series(df, x_column, x_label, numerical_columns, target_column=target_column)
+        else:
+            print("NO!!!!!!!!!!!")
+            line_chart_base64 = plot_time_series(df, x_column, x_label, numerical_columns)
 
         # 绘制水质类别分布饼图
         if '水质类别' in df.columns:
@@ -257,10 +264,15 @@ def visualize_water_quality(file_path):
             pie_chart_data = pie_chart_buffer.getvalue()
             pie_chart_base64 = base64.b64encode(pie_chart_data).decode('utf-8')
             plt.close()
-
-            return line_chart_base64, pie_chart_base64
+            if target_column:
+                return single_line_chart, pie_chart_base64
+            else:
+                return line_chart_base64, pie_chart_base64
         else:
-            return line_chart_base64, None
+            if target_column:
+                return single_line_chart, None
+            else:
+                return line_chart_base64, None
 
     except FileNotFoundError as e:
         print(f"错误: {e}")
@@ -274,6 +286,66 @@ def visualize_water_quality(file_path):
         import traceback
         traceback.print_exc()
         return None, None
+
+
+# 绘制每个数值列随时间的变化（支持单指标显示）
+def plot_time_series(df, x_column, x_label, numerical_columns, target_column=None):
+    plt.figure(figsize=(12, 8))
+    print(numerical_columns)
+    if target_column and target_column in numerical_columns:
+        # 单独显示单个指标
+        n_plots = 1
+        n_rows, n_cols = 1, 1
+        col = target_column
+        plt.subplot(n_rows, n_cols, 1)
+
+        x_data = df[x_column] if isinstance(x_column, str) else df.index
+        y_data = df[col]
+        mask = y_data.notna()
+        x_data = x_data[mask]
+        y_data = y_data[mask]
+
+        if len(x_data) > 0 and len(y_data) > 0:
+            plt.plot(x_data, y_data, marker='o', linestyle='-', color='blue')
+            plt.title(f"{col} 随时间的变化")
+            plt.xlabel(x_label)
+            plt.ylabel(col)
+            plt.grid(True)
+        else:
+            plt.text(0.5, 0.5, '无有效数据', ha='center', va='center')
+            plt.title(f"{col} (无有效数据)")
+    else:
+        # 显示所有指标（原有逻辑）
+        n_plots = len(numerical_columns)
+        n_rows = (n_plots + 1) // 2
+        n_cols = min(2, n_plots)
+
+        for i, col in enumerate(numerical_columns, 1):
+            plt.subplot(n_rows, n_cols, i)
+            x_data = df[x_column] if isinstance(x_column, str) else df.index
+            y_data = df[col]
+            mask = y_data.notna()
+            x_data = x_data[mask]
+            y_data = y_data[mask]
+
+            if len(x_data) > 0 and len(y_data) > 0:
+                plt.plot(x_data, y_data)
+                plt.title(f"{col} 随时间的变化")
+                plt.xlabel(x_label)
+                plt.ylabel(col)
+                plt.grid(True)
+            else:
+                plt.text(0.5, 0.5, '无有效数据', ha='center', va='center')
+                plt.title(f"{col} (无有效数据)")
+
+    # 保存图表到内存
+    buffer = BytesIO()
+    plt.tight_layout()
+    plt.savefig(buffer, format='png')
+    buffer.seek(0)
+    chart_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
+    plt.close()
+    return chart_data
 
 
 #########################################鱼类
@@ -313,6 +385,47 @@ def generate_scatter_chart(df):
 
     buffer = BytesIO()
     plt.savefig(buffer, format='png')
+    buffer.seek(0)
+    chart_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
+    plt.close()
+
+    return chart_data
+
+
+def generate_single_species_scatter(df, species_name):
+
+    # 筛选特定种类的鱼
+    species_data = df[df['Species'] == species_name]
+
+    # 检查是否有数据
+    if species_data.empty:
+        print(f"错误: 未找到种类为 '{species_name}' 的鱼数据")
+        return None
+
+    # 计算相关系数
+    correlation = species_data['Length1(cm)'].corr(species_data['Width(cm)'])
+
+    # 创建散点图并添加回归线
+    plt.figure(figsize=(10, 7))
+    sns.regplot(x='Length1(cm)', y='Width(cm)', data=species_data,
+                scatter_kws={'alpha': 0.6, 'color': 'dodgerblue'},
+                line_kws={'color': 'crimson'})
+
+    # 添加标题和标签，包括相关系数
+    plt.title(f"{species_name} 的长度和宽度关系 (相关系数: {correlation:.2f})", fontsize=14)
+    plt.xlabel('长度 (cm)', fontsize=12)
+    plt.ylabel('宽度 (cm)', fontsize=12)
+    plt.grid(True, linestyle='--', alpha=0.7)
+
+    # 添加数据统计信息
+    plt.figtext(0.15, 0.01,
+                f"样本数量: {len(species_data)} | 平均长度: {species_data['Length1(cm)'].mean():.2f} cm | 平均宽度: {species_data['Width(cm)'].mean():.2f} cm",
+                fontsize=10, ha='left')
+
+    # 保存图表到内存并转换为Base64
+    buffer = BytesIO()
+    plt.tight_layout()
+    plt.savefig(buffer, format='png', dpi=300)
     buffer.seek(0)
     chart_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
     plt.close()

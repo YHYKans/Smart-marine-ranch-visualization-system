@@ -6,6 +6,8 @@ function FishVisualization() {
   const [scatterChart, setScatterChart] = useState(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [singleSpeciesChart, setSingleSpeciesChart] = useState(null);
+  const [speciesName, setSpeciesName] = useState('');
 
   // 样式对象（与示例保持一致）
   const styles = {
@@ -105,29 +107,35 @@ function FishVisualization() {
     }
   };
 
-  // 提交处理
+  // 提交处理函数增强版
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
+    setSingleSpeciesChart(null); // 清空上次结果
 
     try {
+      const formData = new FormData();
+      formData.append('species', speciesName.trim()); // 传递鱼种参数
+
       const response = await fetch('http://localhost:3001/visualize-fish', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        body: formData // 直接传递FormData，自动处理Content-Type为multipart/form-data
       });
 
-      if (!response.ok) throw new Error(await response.text());
-      
+      if (!response.ok) throw new Error(`HTTP错误！状态码：${response.status}`);
+
       const data = await response.json();
       if (data.error) throw new Error(data.error);
 
       setBarChart(data.bar_chart);
       setScatterChart(data.scatter_chart);
+      setSingleSpeciesChart(data.single_species_scatter); // 存储单个鱼种图表数据
     } catch (err) {
-      setError(err.message);
+      setError(err.message || '获取数据失败，请检查网络连接或重试');
       setBarChart(null);
       setScatterChart(null);
+      setSingleSpeciesChart(null);
     } finally {
       setIsLoading(false);
     }
@@ -137,17 +145,32 @@ function FishVisualization() {
     <div style={styles.container}>
       <h1 style={styles.header}>水产数据可视化系统</h1>
 
-      <div style={styles.controlPanel}>
+      {/* 新增鱼种选择控件 */}
+      <div style={{ ...styles.controlPanel, marginBottom: '3rem', gap: '1rem' }}>
+        <input
+          type="text"
+          placeholder="请输入鱼类种类（如：Perch）"
+          value={speciesName}
+          onChange={(e) => setSpeciesName(e.target.value)}
+          style={{
+            padding: '0.8rem 1.5rem',
+            borderRadius: '8px',
+            border: '1px solid #ddd',
+            fontSize: '1.1rem',
+            flexGrow: 1,
+            maxWidth: '400px'
+          }}
+        />
         <button
           type="button"
           onClick={handleSubmit}
           style={{
             ...styles.submitButton,
-            ...(isLoading && styles.submitButton[':disabled'])
+            ...(isLoading && { backgroundColor: '#bdc3c7', cursor: 'not-allowed' })
           }}
           disabled={isLoading}
         >
-          {isLoading ? '数据加载中...' : '加载水产数据'}
+          {isLoading ? '数据加载中...' : '生成可视化图表'}
         </button>
       </div>
 
@@ -156,17 +179,18 @@ function FishVisualization() {
       {isLoading && (
         <div style={styles.loadingOverlay}>
           <div style={styles.spinner}></div>
-          <p style={{ marginTop: '1rem', color: '#3498db' }}>正在分析水产数据...</p>
+          <p style={{ marginTop: '1rem', color: '#3498db' }}>正在生成图表...</p>
         </div>
       )}
 
       <div style={styles.chartContainer}>
+        {/* 原有图表 */}
         {barChart && (
           <div style={styles.chartCard}>
-            <h2 style={styles.chartTitle}>鱼类平均重量分析</h2>
-            <img 
-              src={`data:image/png;base64,${barChart}`} 
-              alt="鱼类平均重量"
+            <h2 style={styles.chartTitle}>每种鱼类的平均重量</h2>
+            <img
+              src={`data:image/png;base64,${barChart}`}
+              alt="鱼类平均重量柱状图"
               style={styles.chartImage}
             />
           </div>
@@ -174,11 +198,25 @@ function FishVisualization() {
 
         {scatterChart && (
           <div style={styles.chartCard}>
-            <h2 style={styles.chartTitle}>体型特征分布</h2>
+            <h2 style={styles.chartTitle}>鱼类长度和宽度关系</h2>
             <img
               src={`data:image/png;base64,${scatterChart}`}
-              alt="体型特征分布"
+              alt="长度宽度散点图"
               style={styles.chartImage}
+            />
+          </div>
+        )}
+
+        {/* 新增单个鱼种图表 */}
+        {singleSpeciesChart && (
+          <div style={{ ...styles.chartCard, borderLeft: '4px solid #2ecc71' }}>
+            <h2 style={styles.chartTitle}>
+              {speciesName} 的长度与宽度关系
+            </h2>
+            <img
+              src={`data:image/png;base64,${singleSpeciesChart}`}
+              alt={`${speciesName} 长度宽度关系`}
+              style={{ ...styles.chartImage, height: '350px' }}
             />
           </div>
         )}

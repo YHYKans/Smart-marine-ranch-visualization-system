@@ -7,7 +7,8 @@ function Underwater() {
   const [pieChart, setPieChart] = useState(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
+      // 在状态声明中新增 selectedMetric 状态
+  const [selectedMetric, setSelectedMetric] = useState('');
   // 常量配置
   const minDate = '2020-05-08';
   const maxDate = '2021-04-05';
@@ -145,7 +146,7 @@ function Underwater() {
       const response = await fetch('http://localhost:3001/visualize-water', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_path: filePath })
+        body: JSON.stringify({ file_path: filePath, target_column: selectedMetric })
       });
 
       if (!response.ok) throw new Error(await response.text());
@@ -178,6 +179,36 @@ function Underwater() {
           required
           style={styles.dateInput}
         />
+      {/* 新增：指标选择下拉框 */}
+      <select
+        value={selectedMetric}
+        onChange={(e) => setSelectedMetric(e.target.value)}
+        style={{
+          padding: '0.8rem',
+          borderRadius: '8px',
+          border: '2px solid #3498db',
+          fontSize: '1.1rem',
+          width: '220px',
+          outline: 'none',
+          transition: 'all 0.3s ease',
+        }}
+      >
+        <option value="">显示全部指标</option>
+        <option value="断面名称">断面名称</option>
+        <option value="水温(℃)">水温</option>
+        <option value="pH(无量纲)">PH值</option>
+        <option value="溶解氧(mg/L)">溶解氧</option>
+        <option value="电导率(μS/cm)">电导率</option>
+        <option value="浊度(NTU)">浊度</option>
+        <option value="高锰酸盐指数(mg/L)">高锰酸盐指数</option>
+        <option value="氨氮(mg/L)">氨氮</option>
+        <option value="总磷(mg/L)">总磷</option>
+        <option value="总氮(mg/L)">总氮</option>
+        <option value="叶绿素α(mg/L)">叶绿素</option>
+        <option value="藻密度(cells/L)">藻密度</option>
+        {/* 根据实际数据动态生成选项，此处示例为静态值 */}
+      </select>
+
         <button
           type="submit"
           style={{
