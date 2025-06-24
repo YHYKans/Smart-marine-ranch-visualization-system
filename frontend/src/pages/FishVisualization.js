@@ -1,273 +1,366 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Card, Row, Col, Select, Spin, message } from 'antd';
+import { Bar, Scatter } from 'react-chartjs-2';
+import Chart from 'chart.js/auto';
 
-function FishVisualization() {
-  // 状态管理
-  const [barChart, setBarChart] = useState(null);
-  const [scatterChart, setScatterChart] = useState(null);
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [singleSpeciesChart, setSingleSpeciesChart] = useState(null);
-  const [speciesName, setSpeciesName] = useState('');
+// 导入 Select.Option
+const { Option } = Select;
 
-  // 样式对象（与示例保持一致）
-  const styles = {
-    container: {
-      maxWidth: '1200px',
-      margin: '0 auto',
-      padding: '2rem',
-      fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
-    },
-    header: {
-      textAlign: 'center',
-      color: '#2c3e50',
-      marginBottom: '2rem',
-      fontSize: '2.5rem',
-      textShadow: '2px 2px 4px rgba(0,0,0,0.1)'
-    },
-    controlPanel: {
-      display: 'flex',
-      justifyContent: 'center',
-      marginBottom: '2rem'
-    },
-    submitButton: {
-      padding: '0.8rem 2rem',
-      backgroundColor: '#3498db',
-      color: 'white',
-      border: 'none',
-      borderRadius: '8px',
-      fontSize: '1.1rem',
-      cursor: 'pointer',
-      transition: 'all 0.3s ease',
-      ':hover': {
-        backgroundColor: '#2980b9',
-        transform: 'translateY(-1px)'
-      },
-      ':disabled': {
-        backgroundColor: '#bdc3c7',
-        cursor: 'not-allowed',
-        transform: 'none'
-      }
-    },
-    error: {
-      backgroundColor: '#ffe6e6',
-      color: '#e74c3c',
-      padding: '1rem',
-      borderRadius: '8px',
-      margin: '1rem auto',
-      maxWidth: '600px',
-      textAlign: 'center',
-      border: '1px solid #e74c3c'
-    },
-    chartContainer: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-      gap: '2rem',
-      marginTop: '2rem'
-    },
-    chartCard: {
-      backgroundColor: 'white',
-      borderRadius: '12px',
-      padding: '1.5rem',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-      transition: 'transform 0.3s ease',
-      ':hover': {
-        transform: 'translateY(-5px)'
-      }
-    },
-    chartTitle: {
-      color: '#2c3e50',
-      marginBottom: '1rem',
-      textAlign: 'center'
-    },
-    chartImage: {
-      width: '100%',
-      height: 'auto',
-      borderRadius: '8px'
-    },
-    loadingOverlay: {
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000
-    },
-    spinner: {
-      width: '50px',
-      height: '50px',
-      borderRadius: '50%',
-      border: '4px solid #f3f3f3',
-      borderTop: '4px solid #3498db',
-      animation: 'spin 1s linear infinite'
-    }
-  };
+function FishDataVisualization() {
+  const [fishData, setFishData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedSpecies, setSelectedSpecies] = useState('');
+  const [availableSpecies, setAvailableSpecies] = useState([]);
 
-  // 提交处理函数增强版
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
+  // 从后端获取鱼类数据
+  useEffect(() => {
+    fetchFishData();
+  }, [selectedSpecies]);
+
+  const fetchFishData = async () => {
     setIsLoading(true);
-    setSingleSpeciesChart(null); // 清空上次结果
-
     try {
       const formData = new FormData();
-      formData.append('species', speciesName.trim()); // 传递鱼种参数
+      if (selectedSpecies) {
+        formData.append('species', selectedSpecies);
+      }
 
       const response = await fetch('http://localhost:3001/visualize-fish', {
         method: 'POST',
-        body: formData // 直接传递FormData，自动处理Content-Type为multipart/form-data
+        body: formData
       });
 
-      if (!response.ok) throw new Error(`HTTP错误！状态码：${response.status}`);
+      if (!response.ok) throw new Error(await response.text());
 
       const data = await response.json();
-      if (data.error) throw new Error(data.error);
+      setFishData(data);
 
-      setBarChart(data.bar_chart);
-      setScatterChart(data.scatter_chart);
-      setSingleSpeciesChart(data.single_species_scatter); // 存储单个鱼种图表数据
+      // 提取可用的鱼种列表
+      if (data.bar_chart_data) {
+        const species = data.bar_chart_data.map(item => item.Species);
+        setAvailableSpecies(species);
+      }
+
     } catch (err) {
-      setError(err.message || '获取数据失败，请检查网络连接或重试');
-      setBarChart(null);
-      setScatterChart(null);
-      setSingleSpeciesChart(null);
+      message.error(err.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    <div style={styles.container}>
-      <h1 style={styles.header}>水产数据可视化系统</h1>
+  // 渲染平均重量柱状图
+  const renderWeightBarChart = () => {
+    if (!fishData || !fishData.bar_chart_data) return null;
 
-      {/* 功能区：搜索框 + 预测按钮 + 提交按钮 */}
-      <div style={{
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: '3rem',
-        gap: '1rem'
-      }}>
-        {/* 左侧：搜索框 + 预测按钮 */}
-        <div style={{ display: 'flex', flexDirection: 'row', gap: '1rem', flexGrow: 1 }}>
-          <input
-            type="text"
-            placeholder="请输入鱼类种类（如：Perch）"
-            value={speciesName}
-            onChange={(e) => setSpeciesName(e.target.value)}
-            style={{
-              padding: '0.8rem 1.5rem',
-              borderRadius: '8px',
-              border: '1px solid #ddd',
-              fontSize: '1.1rem',
-              flexGrow: 1,
-              maxWidth: '400px'
+    const { bar_chart_data } = fishData;
+    const labels = bar_chart_data.map(item => item.Species);
+    const values = bar_chart_data.map(item => item['Weight(g)']);
+
+    return (
+      <Card title="每种鱼类的平均重量" bordered={true}>
+        <div style={{ height: '350px' }}>
+          <Bar
+            data={{
+              labels: labels,
+              datasets: [{
+                label: '平均重量 (g)',
+                data: values,
+                backgroundColor: [
+                  'rgba(54, 162, 235, 0.7)',
+                  'rgba(255, 99, 132, 0.7)',
+                  'rgba(255, 206, 86, 0.7)',
+                  'rgba(75, 192, 192, 0.7)',
+                  'rgba(153, 102, 255, 0.7)',
+                  'rgba(255, 159, 64, 0.7)',
+                  'rgba(173, 216, 230, 0.7)'
+                ],
+                borderColor: [
+                  'rgb(54, 162, 235)',
+                  'rgb(255, 99, 132)',
+                  'rgb(255, 206, 86)',
+                  'rgb(75, 192, 192)',
+                  'rgb(153, 102, 255)',
+                  'rgb(255, 159, 64)',
+                  'rgb(173, 216, 230)'
+                ],
+                borderWidth: 1
+              }]
             }}
-          />
-
-          <Link
-            to="/fish-length-prediction"
-            style={{
-              padding: '0.8rem 1.5rem',
-              backgroundColor: '#3498db',
-              color: 'white',
-              borderRadius: '8px',
-              textDecoration: 'none',
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              display: 'flex',
-              alignItems: 'center',
-              transition: 'all 0.3s ease',
-              ':hover': {
-                backgroundColor: '#2980b9',
-                transform: 'translateY(-2px)'
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'top',
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: {
+                    display: true,
+                    text: '平均重量 (g)'
+                  }
+                }
               }
             }}
+          />
+        </div>
+      </Card>
+    );
+  };
+
+  // 渲染所有鱼类长度和宽度关系散点图
+  const renderGeneralScatterChart = () => {
+    if (!fishData || !fishData.scatter_chart_data) return null;
+
+    // 按鱼种分组数据
+    const speciesGroups = {};
+    fishData.scatter_chart_data.forEach(item => {
+      if (!speciesGroups[item.Species]) {
+        speciesGroups[item.Species] = [];
+      }
+      speciesGroups[item.Species].push({
+        x: item['Length1(cm)'],
+        y: item['Width(cm)']
+      });
+    });
+
+    // 为每个鱼种创建数据集
+    const datasets = Object.keys(speciesGroups).map(species => ({
+      label: species,
+      data: speciesGroups[species],
+      backgroundColor: getRandomColor(0.7),
+      borderColor: getRandomColor(),
+      borderWidth: 1,
+      pointRadius: 4,
+      pointHoverRadius: 6
+    }));
+
+    return (
+      <Card title="鱼类的长度和宽度关系" bordered={true}>
+        <div style={{ height: '350px' }}>
+          <Scatter
+            data={{
+              datasets: datasets
+            }}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'top',
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      const point = context.parsed;
+                      return [`长度: ${point.x} cm`, `宽度: ${point.y} cm`];
+                    }
+                  }
+                }
+              },
+              scales: {
+                x: {
+                  type: 'linear',
+                  position: 'bottom',
+                  title: {
+                    display: true,
+                    text: '长度 (cm)'
+                  }
+                },
+                y: {
+                  title: {
+                    display: true,
+                    text: '宽度 (cm)'
+                  }
+                }
+              }
+            }}
+          />
+        </div>
+      </Card>
+    );
+  };
+
+  // 渲染特定鱼种的散点图（带回归线）
+  const renderSingleSpeciesScatterChart = () => {
+    if (!fishData || !fishData.single_species_data) return null;
+
+    const { single_species_data } = fishData;
+    const { species, data, stats } = single_species_data;
+
+    // 准备散点数据
+    const scatterData = data.map(item => ({
+      x: item['Length1(cm)'],
+      y: item['Width(cm)']
+    }));
+
+    // 计算回归线数据
+    const regressionLine = calculateRegressionLine(scatterData);
+
+    return (
+      <Card
+        title={`${species} 的长度和宽度关系 (相关系数: ${stats.correlation.toFixed(2)})`}
+        borderColor="#1890ff"
+        style={{ borderWidth: 2 }}
+      >
+        <div style={{ height: '350px' }}>
+          <Scatter
+            data={{
+              datasets: [
+                {
+                  label: `${species} 样本点`,
+                  data: scatterData,
+                  backgroundColor: 'rgba(30, 144, 255, 0.5)',
+                  borderColor: 'rgba(30, 144, 255, 1)',
+                  borderWidth: 1,
+                  pointRadius: 4,
+                  pointHoverRadius: 6
+                },
+                {
+                  label: '回归线',
+                  data: regressionLine,
+                  backgroundColor: 'rgba(220, 20, 60, 0)',
+                  borderColor: 'rgba(220, 20, 60, 1)',
+                  borderWidth: 2,
+                  pointRadius: 0,
+                  showLine: true,
+                  fill: false
+                }
+              ]
+            }}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'top',
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      if (context.dataset.label === '回归线') {
+                        return [`回归线: y = ${regressionLine.slope.toFixed(4)}x + ${regressionLine.intercept.toFixed(4)}`];
+                      }
+                      const point = context.parsed;
+                      return [`长度: ${point.x} cm`, `宽度: ${point.y} cm`];
+                    }
+                  }
+                }
+              },
+              scales: {
+                x: {
+                  type: 'linear',
+                  position: 'bottom',
+                  title: {
+                    display: true,
+                    text: '长度 (cm)'
+                  }
+                },
+                y: {
+                  title: {
+                    display: true,
+                    text: '宽度 (cm)'
+                  }
+                }
+              }
+            }}
+          />
+        </div>
+        <div style={{ padding: '10px', backgroundColor: '#f5f7fa', borderRadius: '4px', marginTop: '10px' }}>
+          <p>样本数量: {stats.sample_size} | 平均长度: {stats.avg_length.toFixed(2)} cm | 平均宽度: {stats.avg_width.toFixed(2)} cm</p>
+        </div>
+      </Card>
+    );
+  };
+
+  // 计算回归线
+  const calculateRegressionLine = (dataPoints) => {
+    const xValues = dataPoints.map(p => p.x);
+    const yValues = dataPoints.map(p => p.y);
+
+    const n = xValues.length;
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+
+    for (let i = 0; i < n; i++) {
+      sumX += xValues[i];
+      sumY += yValues[i];
+      sumXY += xValues[i] * yValues[i];
+      sumX2 += xValues[i] * xValues[i];
+    }
+
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    // 生成回归线上的点
+    const xMin = Math.min(...xValues);
+    const xMax = Math.max(...xValues);
+    const regressionPoints = [
+      { x: xMin, y: slope * xMin + intercept },
+      { x: xMax, y: slope * xMax + intercept }
+    ];
+
+    return {
+      data: regressionPoints,
+      slope: slope,
+      intercept: intercept
+    };
+  };
+
+  // 生成随机颜色
+  const getRandomColor = (alpha = 1) => {
+    const r = Math.floor(Math.random() * 256);
+    const g = Math.floor(Math.random() * 256);
+    const b = Math.floor(Math.random() * 256);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  // 处理鱼种选择
+  const handleSpeciesChange = (value) => {
+    setSelectedSpecies(value);
+  };
+
+  return (
+    <div style={{ padding: '20px' }}>
+      <h1 style={{
+        textAlign: 'center',
+        color: '#1890ff',
+        marginBottom: '30px',
+        fontSize: '2rem',
+        fontWeight: '600'
+      }}>
+        鱼类数据可视化分析
+      </h1>
+
+      <Spin spinning={isLoading} tip="加载鱼类数据...">
+        <div style={{ marginBottom: '30px', textAlign: 'center' }}>
+          <Select
+            value={selectedSpecies}
+            onChange={handleSpeciesChange}
+            style={{ width: '300px', height: '52px', fontSize: '16px' }}
+            placeholder="选择鱼种查看详细分析"
           >
-            <i className="fa fa-calculator mr-2"></i> 预测体长
-          </Link>
+            <Option value="">全部鱼类</Option>
+            {availableSpecies.map((species, index) => (
+              <Option key={index} value={species}>{species}</Option>
+            ))}
+          </Select>
         </div>
 
-        {/* 右侧：提交按钮 */}
-        <button
-          type="button"
-          onClick={handleSubmit}
-          style={{
-            padding: '0.8rem 2rem',
-            backgroundColor: '#2ecc71',
-            color: 'white',
-            borderRadius: '8px',
-            fontSize: '1.1rem',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            transition: 'all 0.3s ease',
-            ':hover': {
-              backgroundColor: '#27ae60',
-              transform: 'translateY(-1px)'
-            },
-            ...(isLoading && { backgroundColor: '#bdc3c7', cursor: 'not-allowed' })
-          }}
-          disabled={isLoading}
-        >
-          {isLoading ? '数据加载中...' : '生成可视化图表'}
-        </button>
-      </div>
+        <Row gutter={16}>
+          <Col xs={24} md={12}>
+            {renderWeightBarChart()}
+          </Col>
+          <Col xs={24} md={12}>
+            {renderGeneralScatterChart()}
+          </Col>
+        </Row>
 
-      {error && <div style={styles.error}>⚠️ {error}</div>}
-
-      {isLoading && (
-        <div style={styles.loadingOverlay}>
-          <div style={styles.spinner}></div>
-          <p style={{ marginTop: '1rem', color: '#3498db' }}>正在生成图表...</p>
-        </div>
-      )}
-
-      <div style={styles.chartContainer}>
-        {/* 图表内容保持不变 */}
-        {barChart && (
-          <div style={styles.chartCard}>
-            <h2 style={styles.chartTitle}>每种鱼类的平均重量</h2>
-            <img
-              src={`data:image/png;base64,${barChart}`}
-              alt="鱼类平均重量柱状图"
-              style={styles.chartImage}
-            />
-          </div>
-        )}
-
-        {scatterChart && (
-          <div style={styles.chartCard}>
-            <h2 style={styles.chartTitle}>鱼类长度和宽度关系</h2>
-            <img
-              src={`data:image/png;base64,${scatterChart}`}
-              alt="长度宽度散点图"
-              style={styles.chartImage}
-            />
-          </div>
-        )}
-
-        {singleSpeciesChart && (
-          <div style={{ ...styles.chartCard, borderLeft: '4px solid #2ecc71' }}>
-            <h2 style={styles.chartTitle}>
-              {speciesName} 的长度与宽度关系
-            </h2>
-            <img
-              src={`data:image/png;base64,${singleSpeciesChart}`}
-              alt={`${speciesName} 长度宽度关系`}
-              style={{ ...styles.chartImage, height: '350px' }}
-            />
-          </div>
-        )}
-      </div>
+        {selectedSpecies && renderSingleSpeciesScatterChart()}
+      </Spin>
     </div>
   );
 }
 
-export default FishVisualization;
+export default FishDataVisualization;

@@ -257,49 +257,49 @@ def visualize_water_quality(file_path, target_column=None):
 
 
         ###################
-        # 绘制水质类别分布饼图
-        if '水质类别' in df.columns:
-            plt.figure(figsize=(8, 6))
-            # 定义需要过滤的无效值列表
-            invalid_values = ['*', '-', 'nan', 'NaN', 'N/A', '无数据', '正常', '异常', '---', '']
-            # 过滤掉无效值
-            valid_categories = df['水质类别'].replace(invalid_values, pd.NA).dropna()
-            # 计算有效类别的数量
-            water_quality_counts = valid_categories.value_counts()
-            if len(water_quality_counts) > 0:
-                # 绘制饼图，设置标签和百分比格式
-                plt.pie(
-                    water_quality_counts,
-                    labels=water_quality_counts.index,
-                    autopct='%1.1f%%',
-                    startangle=90,
-                    textprops={'fontsize': 10}  # 设置标签字体大小
-                )
-                plt.title('水质类别分布')
-                plt.axis('equal')  # 使饼图为正圆形
-                # 如果类别太多，考虑使用图例而不是直接在扇形上显示标签
-                if len(water_quality_counts) > 5:
-                    plt.legend(water_quality_counts.index, loc='best')
-            else:
-                plt.text(0.5, 0.5, '无水质类别数据', ha='center', va='center', transform=plt.gca().transAxes)
-                plt.title('水质类别分布 (无数据)')
-
-            # 将饼图保存到内存缓冲区
-            pie_chart_buffer = BytesIO()  # 使用从 io 模块导入的 BytesIO
-            plt.savefig(pie_chart_buffer, format='png')
-            pie_chart_buffer.seek(0)
-            pie_chart_data = pie_chart_buffer.getvalue()
-            pie_chart_base64 = base64.b64encode(pie_chart_data).decode('utf-8')
-            plt.close()
-            if target_column:
-                return single_line_chart, pie_chart_base64
-            else:
-                return line_chart_base64, pie_chart_base64
-        else:
-            if target_column:
-                return single_line_chart, None
-            else:
-                return line_chart_base64, None
+        # # 绘制水质类别分布饼图
+        # if '水质类别' in df.columns:
+        #     plt.figure(figsize=(8, 6))
+        #     # 定义需要过滤的无效值列表
+        #     invalid_values = ['*', '-', 'nan', 'NaN', 'N/A', '无数据', '正常', '异常', '---', '']
+        #     # 过滤掉无效值
+        #     valid_categories = df['水质类别'].replace(invalid_values, pd.NA).dropna()
+        #     # 计算有效类别的数量
+        #     water_quality_counts = valid_categories.value_counts()
+        #     if len(water_quality_counts) > 0:
+        #         # 绘制饼图，设置标签和百分比格式
+        #         plt.pie(
+        #             water_quality_counts,
+        #             labels=water_quality_counts.index,
+        #             autopct='%1.1f%%',
+        #             startangle=90,
+        #             textprops={'fontsize': 10}  # 设置标签字体大小
+        #         )
+        #         plt.title('水质类别分布')
+        #         plt.axis('equal')  # 使饼图为正圆形
+        #         # 如果类别太多，考虑使用图例而不是直接在扇形上显示标签
+        #         if len(water_quality_counts) > 5:
+        #             plt.legend(water_quality_counts.index, loc='best')
+        #     else:
+        #         plt.text(0.5, 0.5, '无水质类别数据', ha='center', va='center', transform=plt.gca().transAxes)
+        #         plt.title('水质类别分布 (无数据)')
+        #
+        #     # 将饼图保存到内存缓冲区
+        #     pie_chart_buffer = BytesIO()  # 使用从 io 模块导入的 BytesIO
+        #     plt.savefig(pie_chart_buffer, format='png')
+        #     pie_chart_buffer.seek(0)
+        #     pie_chart_data = pie_chart_buffer.getvalue()
+        #     pie_chart_base64 = base64.b64encode(pie_chart_data).decode('utf-8')
+        #     plt.close()
+        #     if target_column:
+        #         return single_line_chart, pie_chart_base64
+        #     else:
+        #         return line_chart_base64, pie_chart_base64
+        # else:
+        #     if target_column:
+        #         return single_line_chart, None
+        #     else:
+        #         return line_chart_base64, None
 
     except FileNotFoundError as e:
         print(f"错误: {e}")

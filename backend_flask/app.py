@@ -123,36 +123,84 @@ def handle_water_visualization():
         return jsonify({"error": str(e)}), 500
 
 # 添加鱼类数据路由
+# @app.route('/visualize-fish', methods=['POST'])
+# def handle_fish_visualization():
+#     try:
+#         # 固定文件路径
+#         fixed_path = 'config/软件工程大作业数据/Fish.csv'
+#
+#         # 读取数据
+#         df = DataVisualization.read_fish_data(fixed_path)
+#         if df is None:
+#             return jsonify({"error": "数据文件不存在"}), 404
+#         # 处理单个鱼种请求（新增逻辑）
+#         species_name = request.form.get('species')  # 从POST表单获取鱼种名称
+#         single_scatter = None
+#         if species_name:
+#             single_scatter = DataVisualization.generate_single_species_scatter(df, species_name)
+#             if not single_scatter:
+#                 return jsonify({"error": f"未找到鱼种 '{species_name}' 的数据"}), 400
+#         # 生成图表
+#         bar_chart = DataVisualization.generate_bar_chart(df)
+#         scatter_chart = DataVisualization.generate_scatter_chart(df)
+#
+#         return jsonify({
+#             "bar_chart": bar_chart,
+#             "scatter_chart": scatter_chart,
+#             "single_species_scatter": single_scatter  # 新增返回字段
+#         })
+#
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
 @app.route('/visualize-fish', methods=['POST'])
 def handle_fish_visualization():
     try:
-        # 固定文件路径
         fixed_path = 'config/软件工程大作业数据/Fish.csv'
-        
+
         # 读取数据
         df = DataVisualization.read_fish_data(fixed_path)
         if df is None:
             return jsonify({"error": "数据文件不存在"}), 404
-        # 处理单个鱼种请求（新增逻辑）
-        species_name = request.form.get('species')  # 从POST表单获取鱼种名称
-        single_scatter = None
+
+        # 处理单个鱼种请求
+        species_name = request.form.get('species')
+        single_species_data = None
         if species_name:
-            single_scatter = DataVisualization.generate_single_species_scatter(df, species_name)
-            if not single_scatter:
+            # 筛选特定鱼种数据
+            species_df = df[df['Species'] == species_name]
+            if species_df.empty:
                 return jsonify({"error": f"未找到鱼种 '{species_name}' 的数据"}), 400
-        # 生成图表
-        bar_chart = DataVisualization.generate_bar_chart(df)
-        scatter_chart = DataVisualization.generate_scatter_chart(df)
-        
+
+            # 计算相关系数和统计信息
+            correlation = species_df['Length1(cm)'].corr(species_df['Width(cm)'])
+            stats = {
+                'sample_size': len(species_df),
+                'avg_length': species_df['Length1(cm)'].mean(),
+                'avg_width': species_df['Width(cm)'].mean(),
+                'correlation': correlation
+            }
+
+            # 准备散点图数据
+            single_species_data = {
+                'species': species_name,
+                'data': species_df[['Length1(cm)', 'Width(cm)']].to_dict('records'),
+                'stats': stats
+            }
+
+        # 准备柱状图数据：每种鱼类的平均重量
+        bar_chart_data = df.groupby('Species')['Weight(g)'].mean().reset_index()
+
+        # 准备散点图数据：所有鱼类的长度和宽度关系
+        scatter_chart_data = df[['Species', 'Length1(cm)', 'Width(cm)']].to_dict('records')
+
         return jsonify({
-            "bar_chart": bar_chart,
-            "scatter_chart": scatter_chart,
-            "single_species_scatter": single_scatter  # 新增返回字段
+            "bar_chart_data": bar_chart_data.to_dict('records'),
+            "scatter_chart_data": scatter_chart_data,
+            "single_species_data": single_species_data
         })
-    
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 
 
