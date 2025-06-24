@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 function FishVisualization() {
   // 状态管理
@@ -145,27 +146,72 @@ function FishVisualization() {
     <div style={styles.container}>
       <h1 style={styles.header}>水产数据可视化系统</h1>
 
-      {/* 新增鱼种选择控件 */}
-      <div style={{ ...styles.controlPanel, marginBottom: '3rem', gap: '1rem' }}>
-        <input
-          type="text"
-          placeholder="请输入鱼类种类（如：Perch）"
-          value={speciesName}
-          onChange={(e) => setSpeciesName(e.target.value)}
-          style={{
-            padding: '0.8rem 1.5rem',
-            borderRadius: '8px',
-            border: '1px solid #ddd',
-            fontSize: '1.1rem',
-            flexGrow: 1,
-            maxWidth: '400px'
-          }}
-        />
+      {/* 功能区：搜索框 + 预测按钮 + 提交按钮 */}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: '3rem',
+        gap: '1rem'
+      }}>
+        {/* 左侧：搜索框 + 预测按钮 */}
+        <div style={{ display: 'flex', flexDirection: 'row', gap: '1rem', flexGrow: 1 }}>
+          <input
+            type="text"
+            placeholder="请输入鱼类种类（如：Perch）"
+            value={speciesName}
+            onChange={(e) => setSpeciesName(e.target.value)}
+            style={{
+              padding: '0.8rem 1.5rem',
+              borderRadius: '8px',
+              border: '1px solid #ddd',
+              fontSize: '1.1rem',
+              flexGrow: 1,
+              maxWidth: '400px'
+            }}
+          />
+
+          <Link
+            to="/fish-length-prediction"
+            style={{
+              padding: '0.8rem 1.5rem',
+              backgroundColor: '#3498db',
+              color: 'white',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontSize: '1rem',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              transition: 'all 0.3s ease',
+              ':hover': {
+                backgroundColor: '#2980b9',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
+            <i className="fa fa-calculator mr-2"></i> 预测体长
+          </Link>
+        </div>
+
+        {/* 右侧：提交按钮 */}
         <button
           type="button"
           onClick={handleSubmit}
           style={{
-            ...styles.submitButton,
+            padding: '0.8rem 2rem',
+            backgroundColor: '#2ecc71',
+            color: 'white',
+            borderRadius: '8px',
+            fontSize: '1.1rem',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease',
+            ':hover': {
+              backgroundColor: '#27ae60',
+              transform: 'translateY(-1px)'
+            },
             ...(isLoading && { backgroundColor: '#bdc3c7', cursor: 'not-allowed' })
           }}
           disabled={isLoading}
@@ -184,7 +230,7 @@ function FishVisualization() {
       )}
 
       <div style={styles.chartContainer}>
-        {/* 原有图表 */}
+        {/* 图表内容保持不变 */}
         {barChart && (
           <div style={styles.chartCard}>
             <h2 style={styles.chartTitle}>每种鱼类的平均重量</h2>
@@ -207,7 +253,6 @@ function FishVisualization() {
           </div>
         )}
 
-        {/* 新增单个鱼种图表 */}
         {singleSpeciesChart && (
           <div style={{ ...styles.chartCard, borderLeft: '4px solid #2ecc71' }}>
             <h2 style={styles.chartTitle}>
