@@ -1,131 +1,60 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
+import { Row, Col, Card, Select, Button, Spin, message } from 'antd';
+import { Line, Pie } from 'react-chartjs-2';
+import moment from 'moment';
+import Chart from 'chart.js/auto'; // 自动注册所有组件
+
+const { Option } = Select;
+
+const transformChartData = (backendData, chartType) => {
+  if (!backendData) return null;
+
+  if (chartType === 'line') {
+    return {
+      labels: backendData.x || [],
+      datasets: (backendData.datasets || []).map(dataset => ({
+        ...dataset,
+        data: dataset.data || []
+      }))
+    };
+  }
+
+  if (chartType === 'pie') {
+    return {
+      labels: backendData.labels || [],
+      datasets: [{
+        data: backendData.values || [],
+        backgroundColor: backendData.backgroundColor || [],
+        borderColor: backendData.borderColor || [],
+        borderWidth: backendData.borderWidth || 1
+      }]
+    };
+  }
+
+  return null;
+};
 
 function Underwater() {
-  // 状态声明
-  const [selectedDate, setSelectedDate] = useState('2020-05-08');
-  const [lineChart, setLineChart] = useState(null);
-  const [pieChart, setPieChart] = useState(null);
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-      // 在状态声明中新增 selectedMetric 状态
-  const [selectedMetric, setSelectedMetric] = useState('');
-  // 常量配置
+  // 定义日期范围常量
   const minDate = '2020-05-08';
   const maxDate = '2021-04-05';
 
-  // 样式对象
-  const styles = {
-    container: {
-      maxWidth: '1200px',
-      margin: '0 auto',
-      padding: '2rem',
-      fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
-    },
-    header: {
-      textAlign: 'center',
-      color: '#2c3e50',
-      marginBottom: '2rem',
-      fontSize: '2.5rem',
-      textShadow: '2px 2px 4px rgba(0,0,0,0.1)'
-    },
-    form: {
-      display: 'flex',
-      gap: '1rem',
-      justifyContent: 'center',
-      marginBottom: '2rem'
-    },
-    dateInput: {
-      padding: '0.8rem',
-      borderRadius: '8px',
-      border: '2px solid #3498db',
-      fontSize: '1.1rem',
-      width: '220px',
-      outline: 'none',
-      transition: 'all 0.3s ease',
-      ':focus': {
-        borderColor: '#2980b9',
-        boxShadow: '0 0 8px rgba(52,152,219,0.5)'
-      }
-    },
-    submitButton: {
-      padding: '0.8rem 2rem',
-      backgroundColor: '#3498db',
-      color: 'white',
-      border: 'none',
-      borderRadius: '8px',
-      fontSize: '1.1rem',
-      cursor: 'pointer',
-      transition: 'all 0.3s ease',
-      ':hover': {
-        backgroundColor: '#2980b9',
-        transform: 'translateY(-1px)'
-      },
-      ':disabled': {
-        backgroundColor: '#bdc3c7',
-        cursor: 'not-allowed',
-        transform: 'none'
-      }
-    },
-    error: {
-      backgroundColor: '#ffe6e6',
-      color: '#e74c3c',
-      padding: '1rem',
-      borderRadius: '8px',
-      margin: '1rem auto',
-      maxWidth: '600px',
-      textAlign: 'center',
-      border: '1px solid #e74c3c'
-    },
-    chartContainer: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-      gap: '2rem',
-      marginTop: '2rem'
-    },
-    chartCard: {
-      backgroundColor: 'white',
-      borderRadius: '12px',
-      padding: '1.5rem',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-      transition: 'transform 0.3s ease',
-      ':hover': {
-        transform: 'translateY(-5px)'
-      }
-    },
-    chartTitle: {
-      color: '#2c3e50',
-      marginBottom: '1rem',
-      textAlign: 'center'
-    },
-    chartImage: {
-      width: '100%',
-      height: 'auto',
-      borderRadius: '8px'
-    },
-    loadingOverlay: {
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000
-    },
-    spinner: {
-      width: '50px',
-      height: '50px',
-      borderRadius: '50%',
-      border: '4px solid #f3f3f3',
-      borderTop: '4px solid #3498db',
-      animation: 'spin 1s linear infinite'
-    }
-  };
+  const [selectedDate, setSelectedDate] = useState(minDate); // 使用minDate初始化
+  const [lineChartData, setLineChartData] = useState(null);
+  const [pieChartData, setPieChartData] = useState(null);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedMetric, setSelectedMetric] = useState('');
+  const [availableMetrics, setAvailableMetrics] = useState([
+    '断面名称', '水温(℃)', 'pH(无量纲)', '溶解氧(mg/L)',
+    '电导率(μS/cm)', '浊度(NTU)', '高锰酸盐指数(mg/L)',
+    '氨氮(mg/L)', '总磷(mg/L)', '总氮(mg/L)', '叶绿素α(mg/L)', '藻密度(cells/L)'
+  ]);
 
-  // 生成文件路径
+  // 用于存储Chart实例的引用
+  const lineChartRef = useRef(null);
+  const pieChartRef = useRef(null);
+
   const generateFilePath = (dateString) => {
     const date = new Date(dateString);
     const year = date.getFullYear();
@@ -134,7 +63,6 @@ function Underwater() {
     return `config/软件工程大作业数据/水质数据/${year}-${month}/${year}-${month}-${day}.json`;
   };
 
-  // 提交处理
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -142,7 +70,7 @@ function Underwater() {
 
     try {
       const filePath = generateFilePath(selectedDate);
-      
+
       const response = await fetch('http://localhost:3001/visualize-water', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -150,109 +78,267 @@ function Underwater() {
       });
 
       if (!response.ok) throw new Error(await response.text());
-      
+
       const data = await response.json();
+      console.log('后端数据:', data);
+
       if (data.error) throw new Error(data.error);
 
-      setLineChart(data.line_chart);
-      setPieChart(data.pie_chart);
+      // 转换数据格式
+      setLineChartData(transformChartData(data.line_chart_data, 'line'));
+      setPieChartData(transformChartData(data.pie_chart_data, 'pie'));
+      setAvailableMetrics(data.available_metrics || availableMetrics);
+
     } catch (err) {
       setError(err.message);
-      setLineChart(null);
-      setPieChart(null);
+      message.error(err.message);
+      setLineChartData(null);
+      setPieChartData(null);
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    <div style={styles.container}>
-      <h1 style={styles.header}>水下环境监测可视化系统</h1>
+  const formatDate = (dateString) => {
+    return moment(dateString).format('YYYY年MM月DD日');
+  };
 
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          min={minDate}
-          max={maxDate}
-          required
-          style={styles.dateInput}
-        />
-      {/* 新增：指标选择下拉框 */}
-      <select
-        value={selectedMetric}
-        onChange={(e) => setSelectedMetric(e.target.value)}
-        style={{
-          padding: '0.8rem',
-          borderRadius: '8px',
-          border: '2px solid #3498db',
-          fontSize: '1.1rem',
-          width: '220px',
-          outline: 'none',
-          transition: 'all 0.3s ease',
-        }}
-      >
-        <option value="">显示全部指标</option>
-        <option value="断面名称">断面名称</option>
-        <option value="水温(℃)">水温</option>
-        <option value="pH(无量纲)">PH值</option>
-        <option value="溶解氧(mg/L)">溶解氧</option>
-        <option value="电导率(μS/cm)">电导率</option>
-        <option value="浊度(NTU)">浊度</option>
-        <option value="高锰酸盐指数(mg/L)">高锰酸盐指数</option>
-        <option value="氨氮(mg/L)">氨氮</option>
-        <option value="总磷(mg/L)">总磷</option>
-        <option value="总氮(mg/L)">总氮</option>
-        <option value="叶绿素α(mg/L)">叶绿素</option>
-        <option value="藻密度(cells/L)">藻密度</option>
-        {/* 根据实际数据动态生成选项，此处示例为静态值 */}
-      </select>
+  // 组件卸载时销毁Chart实例
+  useEffect(() => {
+    return () => {
+      if (lineChartRef.current) {
+        lineChartRef.current.destroy();
+      }
+      if (pieChartRef.current) {
+        pieChartRef.current.destroy();
+      }
+    };
+  }, []);
 
-        <button
-          type="submit"
-          style={{
-            ...styles.submitButton,
-            ...(isLoading && styles.submitButton[':disabled'])
-          }}
-          disabled={isLoading}
-        >
-          {isLoading ? '数据生成中...' : '开始可视化分析'}
-        </button>
+  // 数据更新时更新Chart实例
+  useEffect(() => {
+    if (lineChartData && lineChartRef.current) {
+      lineChartRef.current.data = lineChartData;
+      lineChartRef.current.update();
+    }
+
+    if (pieChartData && pieChartRef.current) {
+      pieChartRef.current.data = pieChartData;
+      pieChartRef.current.update();
+    }
+  }, [lineChartData, pieChartData]);
+
+return (
+  <div style={{ padding: '30px', backgroundColor: '#f0f2f5' }}>
+    {/* 优化后的标题样式 */}
+    <h1 style={{
+      textAlign: 'center',
+      color: '#1890ff',
+      marginBottom: '40px',
+      fontSize: '2.5rem',
+      fontWeight: '600',
+      textShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    }}>
+      水下环境监测可视化系统
+    </h1>
+
+    <Spin spinning={isLoading} tip="正在分析水质数据...">
+      <form onSubmit={handleSubmit} style={{ marginBottom: '40px' }}>
+        <Row gutter={24} justify="center">
+          <Col xs={24} sm={12} md={8}>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              min={minDate}
+              max={maxDate}
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                border: '1px solid #d9d9d9',
+                borderRadius: '8px',
+                fontSize: '16px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+              }}
+              placeholder="选择日期"
+            />
+            <span style={{
+              display: 'block',
+              marginTop: '12px',
+              color: '#666',
+              fontSize: '14px'
+            }}>
+              选择日期: {formatDate(selectedDate)}
+            </span>
+          </Col>
+          <Col xs={24} sm={12} md={8}>
+            <Select
+              value={selectedMetric}
+              onChange={(value) => setSelectedMetric(value)}
+              style={{
+                width: '100%',
+                height: '52px',
+                fontSize: '16px'
+              }}
+              placeholder="选择监测指标"
+            >
+              <Option value="">显示全部指标</Option>
+              {availableMetrics.map((metric, index) => (
+                <Option key={index} value={metric}>{metric}</Option>
+              ))}
+            </Select>
+          </Col>
+          <Col xs={24} sm={24} md={8} style={{ textAlign: 'center', marginTop: '32px' }}>
+            {/* 优化后的按钮样式 */}
+            <Button
+              type="primary"
+              size="large"
+              onClick={handleSubmit}
+              loading={isLoading}
+              style={{
+                width: '200px',
+                height: '56px',
+                fontSize: '18px',
+                fontWeight: '500',
+                backgroundColor: '#1890ff',
+                borderColor: '#1890ff',
+                boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)',
+                borderRadius: '8px',
+                transition: 'all 0.3s ease'
+              }}
+              hoverStyle={{
+                backgroundColor: '#0d75aa',
+                borderColor: '#0d75aa',
+                boxShadow: '0 6px 16px rgba(24, 144, 255, 0.4)'
+              }}
+            >
+              {isLoading ? '数据生成中...' : '开始可视化分析'}
+            </Button>
+          </Col>
+        </Row>
       </form>
 
-      {error && <div style={styles.error}>⚠️ {error}</div>}
-
-      {isLoading && (
-        <div style={styles.loadingOverlay}>
-          <div style={styles.spinner}></div>
-          <p style={{ marginTop: '1rem', color: '#3498db' }}>正在分析水质数据...</p>
-        </div>
-      )}
-
-      <div style={styles.chartContainer}>
-        {lineChart && (
-          <div style={styles.chartCard}>
-            <h2 style={styles.chartTitle}>水质参数趋势分析</h2>
-            <img 
-              src={`data:image/png;base64,${lineChart}`} 
-              alt="水质趋势图"
-              style={styles.chartImage}
-            />
-          </div>
+        {error && (
+          <Card
+            style={{ marginBottom: '20px', borderColor: '#f5222d' }}
+            title={<span style={{ color: '#f5222d' }}>⚠️ 错误提示</span>}
+          >
+            <p style={{ color: '#f5222d' }}>{error}</p>
+          </Card>
         )}
 
-        {pieChart && (
-          <div style={styles.chartCard}>
-            <h2 style={styles.chartTitle}>水质类别分布统计</h2>
-            <img
-              src={`data:image/png;base64,${pieChart}`}
-              alt="水质分布图"
-              style={styles.chartImage}
-            />
-          </div>
-        )}
-      </div>
+        <Row gutter={16}>
+            {lineChartData && (
+              <Col xs={24} md={12}>
+                <Card title="水质参数趋势分析" bordered={true}>
+                  <div style={{ height: '400px' }}>
+                    <canvas ref={(el) => {
+                      if (!el || !lineChartData) return;
+
+                      if (lineChartRef.current) {
+                        lineChartRef.current.destroy();
+                      }
+
+                      lineChartRef.current = new Chart(el, {
+                        type: 'line',
+                        data: lineChartData,
+                        options: {
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          interaction: {
+                            intersect: false,
+                            mode: 'index',
+                          },
+                          plugins: {
+                            legend: {
+                              position: 'top',
+                            },
+                            tooltip: {
+                              callbacks: {
+                                label: (context) => {
+                                  return `${context.dataset.label}: ${context.parsed.y}`;
+                                }
+                              }
+                            }
+                          },
+                          scales: {
+                            x: {
+                              title: {
+                                display: true,
+                                text: '时间'
+                              }
+                            },
+                            y: {
+                              title: {
+                                display: true,
+                                text: '数值'
+                              }
+                            }
+                          }
+                        }
+                      });
+                    }} />
+                  </div>
+                </Card>
+              </Col>
+            )}
+
+            {pieChartData && (
+              <Col xs={24} md={12}>
+                <Card title="水质类别分布统计" bordered={true}>
+                  <div style={{ height: '400px', position: 'relative' }}>
+                    <canvas
+                      ref={(el) => {
+                        if (!el || !pieChartData) return; // 确保元素和数据存在
+
+                        // 销毁旧图表实例
+                        if (pieChartRef.current) {
+                          pieChartRef.current.destroy();
+                        }
+
+                        // 创建新图表实例（添加你提供的配置）
+                        pieChartRef.current = new Chart(el.getContext('2d'), {
+                          type: 'pie',
+                          data: { // 确保数据格式正确
+                            labels: pieChartData.labels,
+                            datasets: [{
+                              data: pieChartData.values,
+                              backgroundColor: pieChartData.backgroundColor,
+                              borderColor: pieChartData.borderColor,
+                              borderWidth: pieChartData.borderWidth
+                            }]
+                          },
+                          options: { // 这是你要添加的配置
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            layout: {
+                              padding: {
+                                top: 20,
+                                bottom: 20,
+                                left: 20,
+                                right: 20
+                              }
+                            },
+                            plugins: {
+                              legend: {
+                                position: 'right',
+                                labels: {
+                                  font: {
+                                    size: 12
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        });
+                      }}
+                    />
+                  </div>
+                </Card>
+              </Col>
+            )}
+        </Row>
+      </Spin>
     </div>
   );
 }

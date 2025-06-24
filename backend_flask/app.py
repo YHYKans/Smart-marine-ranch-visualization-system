@@ -96,6 +96,20 @@ def handle_water_visualization():
         if not file_path:
             return jsonify({"error": "未提供文件路径"}), 400
 
+##########################
+        line_chart_data, pie_chart_data = DataVisualization.visualize_water_quality(file_path, target_column)
+        # 添加日志输出
+        print("后端返回的折线图数据:", line_chart_data)
+        print("后端返回的饼图数据:", pie_chart_data)
+
+        return jsonify({
+            "line_chart_data": line_chart_data,
+            "pie_chart_data": pie_chart_data
+        })
+
+
+
+###########################
         # 调用现有可视化函数
         line_chart, pie_chart = DataVisualization.visualize_water_quality(file_path, target_column)
 

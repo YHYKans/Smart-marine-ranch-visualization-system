@@ -9,9 +9,10 @@ from flask import Flask, render_template_string, request
 import base64
 from io import BytesIO  # 从 io 模块导入 BytesIO
 import seaborn as sns
+import numpy as np
 
 # 设置中文字体支持
-plt.rcParams["font.family"] = ["SimHei", "WenQuanYi Micro Hei", "Heiti TC", "Arial Unicode MS"]
+plt.rcParams["font.family"] = ["SimHei"]
 plt.rcParams["axes.unicode_minus"] = False  # 解决负号显示问题
 
 app = Flask(__name__)
@@ -183,45 +184,7 @@ def visualize_water_quality(file_path, target_column=None):
             print("提示: 请检查数据格式是否符合预期，特别是数值列是否包含非数字字符")
             return None, None  # 不抛出异常，优雅地退出函数
 
-        # # 绘制每个数值列随时间的变化
-        # plt.figure(figsize=(12, 8))
-        #
-        # # 计算需要的行数和列数，每行显示 2 个子图
-        # n_plots = len(numerical_columns)
-        # n_rows = (n_plots + 1) // 2
-        # n_cols = min(2, n_plots)
-        #
-        # for i, col in enumerate(numerical_columns, 1):
-        #     plt.subplot(n_rows, n_cols, i)
-        #
-        #     # 获取绘图数据
-        #     x_data = df[x_column] if isinstance(x_column, str) else df.index
-        #     y_data = df[col]
-        #
-        #     # 过滤掉 NaN 值
-        #     mask = y_data.notna()
-        #     x_data = x_data[mask]
-        #     y_data = y_data[mask]
-        #
-        #     # 确保数据不为空
-        #     if len(x_data) > 0 and len(y_data) > 0:
-        #         plt.plot(x_data, y_data)
-        #         plt.title(f"{col} 随时间的变化")
-        #         plt.xlabel(x_label)
-        #         plt.ylabel(col)
-        #         plt.grid(True)
-        #     else:
-        #         plt.text(0.5, 0.5, '无有效数据', ha='center', va='center', transform=plt.gca().transAxes)
-        #         plt.title(f"{col} (无有效数据)")
-        #
-        # # 将折线图保存到内存缓冲区
-        # line_chart_buffer = BytesIO()  # 使用从 io 模块导入的 BytesIO
-        # plt.tight_layout()
-        # plt.savefig(line_chart_buffer, format='png')
-        # line_chart_buffer.seek(0)
-        # line_chart_data = line_chart_buffer.getvalue()
-        # line_chart_base64 = base64.b64encode(line_chart_data).decode('utf-8')
-        # plt.close()
+
         # 绘制所有指标图表（默认）
         if target_column:
             print(target_column)
@@ -230,6 +193,70 @@ def visualize_water_quality(file_path, target_column=None):
             print("NO!!!!!!!!!!!")
             line_chart_base64 = plot_time_series(df, x_column, x_label, numerical_columns)
 
+        ##################
+        # 生成折线图数据（优化NaN处理并统一格式）
+        line_chart_data = {
+            'x': df[x_column].astype(str).tolist(),
+            'datasets': []
+        }
+
+        if target_column and target_column in df.columns:
+            # 指定单一指标时
+            line_chart_data['datasets'].append({
+                'label': target_column,
+                'data': df[target_column].replace([np.nan, 'nan', 'NaN', 'N/A', '---', '无数据'], None).tolist(),
+                'borderColor': '#1890ff',
+                'backgroundColor': 'rgba(24, 144, 255, 0.1)',
+                'borderWidth': 2,
+                'tension': 0.3,
+                'fill': True
+            })
+        else:
+            # 显示所有指标时
+            for col in numerical_columns:
+                if col in df.columns:
+                    line_chart_data['datasets'].append({
+                        'label': col,
+                        'data': df[col].replace([np.nan, 'nan', 'NaN', 'N/A', '---', '无数据'], None).tolist(),
+                        'borderWidth': 2,
+                        'tension': 0.3,
+                        'fill': False
+                    })
+
+        # 生成饼图数据（优化NaN处理）
+        if '水质类别' in df.columns:
+            invalid_values = ['*', '-', 'nan', 'NaN', 'N/A', '无数据', '正常', '异常', '---', '']
+            valid_categories = df['水质类别'].replace(invalid_values, pd.NA).dropna()
+            water_quality_counts = valid_categories.value_counts(normalize=True).mul(100).round(1)  # 转换为百分比
+            pie_chart_data = {
+                'labels': water_quality_counts.index.tolist(),
+                'values': water_quality_counts.values.tolist(),
+                'backgroundColor': [
+                    'rgba(255, 99, 132, 0.7)',
+                    'rgba(54, 162, 235, 0.7)',
+                    'rgba(255, 206, 86, 0.7)',
+                    'rgba(75, 192, 192, 0.7)',
+                    'rgba(153, 102, 255, 0.7)',
+                    'rgba(255, 159, 64, 0.7)'
+                ],
+                'borderColor': [
+                    'rgb(255, 99, 132)',
+                    'rgb(54, 162, 235)',
+                    'rgb(255, 206, 86)',
+                    'rgb(75, 192, 192)',
+                    'rgb(153, 102, 255)',
+                    'rgb(255, 159, 64)'
+                ],
+                'borderWidth': 1
+            }
+        else:
+            pie_chart_data = None
+
+        return line_chart_data, pie_chart_data
+
+
+
+        ###################
         # 绘制水质类别分布饼图
         if '水质类别' in df.columns:
             plt.figure(figsize=(8, 6))
