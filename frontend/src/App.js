@@ -11,6 +11,7 @@ import AICenter from './pages/AICenter';
 import FishVisualization from './pages/FishVisualization';
 import Weather from './pages/Weather';
 import Video from './pages/Video';
+import FishLengthPredictionPage from './pages/FishLengthPredictionPage';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
             <Route path="/fish" element={<FishVisualization />} />
             <Route path="/weather" element={<Weather />} />
             <Route path="/video" element={<Video />} />
+            <Route path="/fish-length-prediction" element={<FishLengthPredictionPage />} />
             <Route path="/ai-center" element={
               <ProtectedRoute requireAdmin>
                 <AICenter />

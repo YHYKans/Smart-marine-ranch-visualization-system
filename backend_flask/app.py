@@ -10,9 +10,12 @@ from dotenv import load_dotenv
 import config.DataVisualization as DataVisualization
 from datetime import datetime
 import os
+from flask import Flask, request, jsonify
+import joblib
 
 # 加载环境变量
 load_dotenv()
+
 
 # 创建Flask应用实例
 
@@ -21,6 +24,9 @@ load_dotenv()
 #测试使用下面
 app = Flask(__name__)
 PORT = int(os.environ.get('PORT', 3001))  # 设置端口，优先使用环境变量中的PORT，否则默认为3001
+
+# 立即初始化模型
+model = joblib.load('fish_length_model.pkl')
 
 # 配置中间件
 # 配置更宽松的CORS规则
@@ -132,6 +138,30 @@ def handle_fish_visualization():
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+
+
+@app.route('/predict-fish-length', methods=['POST'])
+def handle_fish_length_prediction():
+    try:
+        if model is None:
+            raise Exception("模型未初始化")
+
+        # 从请求中获取体重、高度和宽度
+        weight = float(request.json.get('weight'))
+        height = float(request.json.get('height'))
+        width = float(request.json.get('width'))
+
+        # 进行体长预测
+        length_prediction = model.predict([[weight, height, width]])[0]
+
+        return jsonify({
+            "length_prediction": length_prediction
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 VIDEO_FOLDER = os.path.join(os.path.dirname(__file__), 'config', 'videos')
 print("当前工作目录:", os.getcwd())
