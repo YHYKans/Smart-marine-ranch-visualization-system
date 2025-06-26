@@ -6,6 +6,7 @@ import Chart from 'chart.js/auto'; // 自动注册所有组件
 
 const { Option } = Select;
 
+
 const transformChartData = (backendData, chartType) => {
   if (!backendData) return null;
 

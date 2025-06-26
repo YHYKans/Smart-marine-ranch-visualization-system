@@ -6,6 +6,7 @@ import Chart from 'chart.js/auto';
 // 导入 Select.Option
 const { Option } = Select;
 
+
 function FishDataVisualization() {
   const [fishData, setFishData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
