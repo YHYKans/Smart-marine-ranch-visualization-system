@@ -1,0 +1,54 @@
+ 
+[2025/06/28 周六 10:19:24.41] 鏈嶅姟鍚姩 
+褰撳墠鐩綍: D:\软件工程\智慧海洋牧场可视化系统\backend_flask 
+APP_PATH:  
+ALLUSERSPROFILE=C:\ProgramData
+APPDATA=C:\WINDOWS\system32\config\systemprofile\AppData\Roaming
+AUTHORWRITE=C:\Program Files\YuewenEdit\program
+ChocolateyInstall=C:\ProgramData\chocolatey
+CommonProgramFiles=C:\Program Files\Common Files
+CommonProgramFiles(x86)=C:\Program Files (x86)\Common Files
+CommonProgramW6432=C:\Program Files\Common Files
+COMPUTERNAME=WIN-B486QFFJRVJ
+ComSpec=C:\WINDOWS\system32\cmd.exe
+DriverData=C:\Windows\System32\Drivers\DriverData
+FLASK_ENV=production
+GOPATH=D:\GOLONG
+GOROOT=D:\go
+JAVA_HOME=C:\Program Files\BellSoft\LibericaJDK-11\
+LOCALAPPDATA=C:\WINDOWS\system32\config\systemprofile\AppData\Local
+MSMPI_BENCHMARKS=D:\MPI\Benchmarks\
+MSMPI_BIN=D:\MPI\Bin\
+MSMPI_INC=D:\MPI\Include\
+MSMPI_LIB32=D:\MPI\Lib\x86\
+MSMPI_LIB64=D:\MPI\Lib\x64\
+MYSQL_DATABASE=water_quality_monitoring
+MYSQL_HOME=D:\ShuJuKuKaoShi\mysql
+MYSQL_PASSWORD=123456
+MYSQL_USER=root
+NUMBER_OF_PROCESSORS=16
+OS=Windows_NT
+Path=C:\Program Files\BellSoft\LibericaJDK-11\bin\;D:\VMware\bin\;C:\Program Files\Eclipse Adoptium\jdk-21.0.3.9-hotspot\bin;C:\Program Files\Common Files\Oracle\Java\javapath;C:\Program Files\PlasticSCM5\server;C:\Program Files\PlasticSCM5\client;D:\MPI\Bin\;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;D:\Microsoft VS Code\bin;D:\Xshell\;C:\Program Files\dotnet\;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;D:\BingXing\MinGW\bin;C:\Program Files\php;C:\composer;C:\Program Files\Git\cmd;C:\Program Files\NVIDIA Corporation\NVIDIA app\NvDLISR;D:\ShuJuKuKaoShi\mysql\bin;C:\Program Files\nodejs\;C:\ProgramData\chocolatey\bin;C:\sqlite;D:\go\bin;D:\Windows Kits\10\Windows Performance Toolkit\;C:\WINDOWS\system32\config\systemprofile\AppData\Local\Microsoft\WindowsApps
+PATHEXT=.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC
+PROCESSOR_ARCHITECTURE=AMD64
+PROCESSOR_IDENTIFIER=AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD
+PROCESSOR_LEVEL=25
+PROCESSOR_REVISION=5000
+ProgramData=C:\ProgramData
+ProgramFiles=C:\Program Files
+ProgramFiles(x86)=C:\Program Files (x86)
+ProgramW6432=C:\Program Files
+PROMPT=$P$G
+PSModulePath=C:\Program Files\WindowsPowerShell\Modules;C:\WINDOWS\system32\WindowsPowerShell\v1.0\Modules
+PUBLIC=C:\Users\Public
+SystemDrive=C:
+SystemRoot=C:\WINDOWS
+TEMP=C:\WINDOWS\TEMP
+TMP=C:\WINDOWS\TEMP
+USERDOMAIN=WORKGROUP
+USERNAME=WIN-B486QFFJRVJ$
+USERPROFILE=C:\WINDOWS\system32\config\systemprofile
+windir=C:\WINDOWS
+信息: 用提供的模式无法找到文件。
+鍚姩Waitress鏈嶅姟鍣?.. 
+[2025/06/28 周六 10:19:24.54] 鏈嶅姟閫�鍑?

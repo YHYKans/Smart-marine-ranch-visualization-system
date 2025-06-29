@@ -2,6 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import UserEditModal from '../components/UserEditModal';
+import { 
+  Layout, Card, Tabs, Table, Tag, Spin, Alert, Avatar, 
+  Button, Space, Typography, Statistic, Badge
+} from 'antd';
+import { 
+  UserOutlined, TeamOutlined, HistoryOutlined, 
+  CheckCircleOutlined, CloseCircleOutlined, 
+  EditOutlined, LockOutlined, LineChartOutlined,
+  DashboardOutlined, CloudServerOutlined
+} from '@ant-design/icons';
+
+const { Header, Content } = Layout;
+const { Title, Text } = Typography;
+const { TabPane } = Tabs;
 
 const AdminDashboard = () => {
   const { userInfo, logout, authFetch } = useAuth();
@@ -11,20 +25,29 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
-  const navigate = useNavigate(); // 添加导航钩子
+  const [stats, setStats] = useState({});
+  const navigate = useNavigate();
 
   useEffect(() => {
-    console.log('AdminDashboard - 当前用户:', userInfo);
-    
-    // 立即检查用户权限
     if (!userInfo || !userInfo.isAdmin) {
-      console.log('AdminDashboard - 非管理员访问，重定向到用户仪表板');
       navigate('/user-dashboard');
       return;
     }
     
     fetchData(activeTab);
+    fetchDashboardStats();
   }, [activeTab, navigate, userInfo]);
+
+  const fetchDashboardStats = async () => {
+    try {
+      const response = await authFetch('/api/stats');
+      if (!response.ok) throw new Error('获取统计数据失败');
+      const data = await response.json();
+      setStats(data);
+    } catch (err) {
+      console.error('获取统计数据失败:', err);
+    }
+  };
 
   const fetchData = async (tab) => {
     setLoading(true);
@@ -37,12 +60,8 @@ const AdminDashboard = () => {
         await fetchLogs();
       }
     } catch (err) {
-      console.error('获取数据失败:', err);
       setError(err.message || '获取数据失败');
-      
-      // 检查是否是权限问题(403)
       if (err.message.includes('权限') || err.message.includes('访问被拒绝')) {
-        console.log('权限被拒绝，重定向到用户仪表板');
         navigate('/user-dashboard');
       }
     } finally {
@@ -54,13 +73,9 @@ const AdminDashboard = () => {
     const response = await authFetch('/api/users');
     if (!response.ok) {
       const data = await response.json();
-      
-      // 特别处理403错误
       if (response.status === 403) {
-        console.log('管理员API访问被拒绝，重定向到用户仪表板');
         navigate('/user-dashboard');
       }
-      
       throw new Error(data.message || '获取用户列表失败');
     }
     const data = await response.json();
@@ -71,13 +86,9 @@ const AdminDashboard = () => {
     const response = await authFetch('/api/logs');
     if (!response.ok) {
       const data = await response.json();
-      
-      // 特别处理403错误
       if (response.status === 403) {
-        console.log('管理员API访问被拒绝，重定向到用户仪表板');
         navigate('/user-dashboard');
       }
-      
       throw new Error(data.message || '获取日志失败');
     }
     const data = await response.json();
@@ -97,7 +108,6 @@ const AdminDashboard = () => {
         body: JSON.stringify(updatedData)
       });
   
-      // 防御性检查
       if (!response || !response.json) {
         throw new Error('无效的服务器响应');
       }
@@ -115,211 +125,441 @@ const AdminDashboard = () => {
     }
   };
 
+  const userColumns = [
+    {
+      title: '用户',
+      dataIndex: 'username',
+      key: 'username',
+      render: (text, record) => (
+        <Space>
+          <Avatar 
+            size="small" 
+            src={record.avatar} 
+            icon={<UserOutlined />}
+            style={{ backgroundColor: '#1890ff' }}
+          />
+          <Text strong>{text}</Text>
+        </Space>
+      )
+    },
+    {
+      title: '邮箱',
+      dataIndex: 'email',
+      key: 'email',
+    },
+    {
+      title: '角色',
+      dataIndex: 'isAdmin',
+      key: 'role',
+      render: (isAdmin) => (
+        <Tag color={isAdmin ? 'geekblue' : 'green'} icon={isAdmin ? <CloudServerOutlined /> : <UserOutlined />}>
+          {isAdmin ? '管理员' : '普通用户'}
+        </Tag>
+      )
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => {
+        let color, icon, text;
+        if (status === 'active') {
+          color = 'success';
+          icon = <CheckCircleOutlined />;
+          text = '活跃';
+        } else if (status === 'suspended') {
+          color = 'error';
+          icon = <CloseCircleOutlined />;
+          text = '已停用';
+        } else {
+          color = 'default';
+          text = '未激活';
+        }
+        return <Tag color={color} icon={icon}>{text}</Tag>;
+      }
+    },
+    {
+      title: '注册时间',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      render: (date) => formatDate(date)
+    },
+    {
+      title: '最后登录',
+      dataIndex: 'lastLogin',
+      key: 'lastLogin',
+      render: (date) => date ? formatDate(date) : '从未登录'
+    },
+    {
+      title: '操作',
+      key: 'action',
+      render: (_, record) => (
+        <Button 
+          type="link" 
+          icon={<EditOutlined />} 
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditingUser(record);
+          }}
+        >
+          编辑
+        </Button>
+      ),
+    },
+  ];
+
+  const logColumns = [
+    {
+      title: '用户',
+      dataIndex: 'username',
+      key: 'username',
+      render: (text, record) => (
+        <Space>
+          <Avatar 
+            size="small" 
+            icon={<UserOutlined />}
+            style={{ backgroundColor: record.successful ? '#52c41a' : '#f5222d' }}
+          />
+          <Text strong>{text}</Text>
+        </Space>
+      )
+    },
+    {
+      title: '操作',
+      dataIndex: 'action',
+      key: 'action',
+      render: (action) => {
+        let text, icon;
+        switch(action) {
+          case 'login': 
+            text = '登录'; 
+            icon = <LockOutlined />;
+            break;
+          case 'register': 
+            text = '注册'; 
+            icon = <UserOutlined />;
+            break;
+          case 'logout': 
+            text = '登出'; 
+            icon = <LockOutlined />;
+            break;
+          default: 
+            text = '密码重置';
+            icon = <LockOutlined />;
+        }
+        return <Tag icon={icon}>{text}</Tag>;
+      }
+    },
+    {
+      title: '用户类型',
+      dataIndex: 'userType',
+      key: 'userType',
+      render: (userType) => (
+        <Tag color={userType === 'admin' ? 'geekblue' : 'green'}>
+          {userType === 'admin' ? '管理员' : '普通用户'}
+        </Tag>
+      )
+    },
+    {
+      title: '状态',
+      dataIndex: 'successful',
+      key: 'status',
+      render: (successful, record) => (
+        <Space>
+          <Badge 
+            status={successful ? "success" : "error"} 
+            text={successful ? '成功' : '失败'} 
+          />
+          {!successful && record.failureReason && (
+            <Text type="secondary">({record.failureReason})</Text>
+          )}
+        </Space>
+      )
+    },
+    {
+      title: 'IP地址',
+      dataIndex: 'ipAddress',
+      key: 'ipAddress',
+      render: (ip) => ip || '-'
+    },
+    {
+      title: '时间',
+      dataIndex: 'timestamp',
+      key: 'timestamp',
+      render: (date) => formatDate(date)
+    }
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-indigo-600 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-white">管理员控制面板</h1>
+    <Layout className="min-h-screen bg-gradient-to-br from-[#001529] to-[#003366]">
+      <Header className="flex items-center justify-between bg-transparent border-b border-blue-800 px-6">
+        <div className="flex items-center">
+          <div className="flex items-center mr-6">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center mr-3">
+              <DashboardOutlined className="text-white text-xl" />
             </div>
-            <div className="flex items-center">
-              <span className="text-white mr-4">管理员：{userInfo.username}</span>
-            </div>
-          </div>
-        </div>
-      </nav>
-      
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="mb-6">
-            <div className="flex border-b border-gray-200">
-              <button
-                className={`py-2 px-4 font-medium text-sm ${
-                  activeTab === 'users'
-                    ? 'border-b-2 border-indigo-500 text-indigo-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-                onClick={() => setActiveTab('users')}
-              >
-                用户管理
-              </button>
-              <button
-                className={`py-2 px-4 font-medium text-sm ${
-                  activeTab === 'logs'
-                    ? 'border-b-2 border-indigo-500 text-indigo-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-                onClick={() => setActiveTab('logs')}
-              >
-                系统日志
-              </button>
-            </div>
+            <Title level={3} className="mb-0 text-white">智能海洋养殖管理平台</Title>
           </div>
           
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <p className="text-gray-500">加载中...</p>
-            </div>
-          ) : error ? (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-              <p>{error}</p>
-            </div>
-          ) : (
-            <>
-              {activeTab === 'users' && (
-                <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          用户名
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          邮箱
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          角色
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          状态
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          注册时间
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          最后登录
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {users.map((user) => (
-                        
-                        <tr 
-                        key={user._id}
-                        onClick={() => setEditingUser(user)}
-                        className="hover:bg-gray-50 cursor-pointer transition-colors"
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {user.username}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {user.email}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {user.isAdmin ? '管理员' : '普通用户'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              user.status === 'active' ? 'bg-green-100 text-green-800' : 
-                              user.status === 'suspended' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {user.status === 'active' ? '活跃' : 
-                               user.status === 'suspended' ? '已停用' : '未激活'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(user.createdAt)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {user.lastLogin ? formatDate(user.lastLogin) : '从未登录'}
-                          </td>
-                        </tr>
-                      ))}
-                      {users.length === 0 && (
-                        <tr>
-                          <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">
-                            没有用户数据
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              
-              {activeTab === 'logs' && (
-                <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          用户名
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          操作
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          用户类型
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          状态
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          IP地址
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          时间
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {logs.map((log) => (
-                        <tr key={log._id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {log.username}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {log.action === 'login' ? '登录' : 
-                             log.action === 'register' ? '注册' : 
-                             log.action === 'logout' ? '登出' : '密码重置'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {log.userType === 'admin' ? '管理员' : '普通用户'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              log.successful ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                            }`}>
-                              {log.successful ? '成功' : '失败'}
-                            </span>
-                            {!log.successful && log.failureReason && (
-                              <span className="ml-2 text-xs text-red-600">
-                                ({log.failureReason})
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {log.ipAddress || '-'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(log.timestamp)}
-                          </td>
-                        </tr>
-                      ))}
-                      {logs.length === 0 && (
-                        <tr>
-                          <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">
-                            没有日志数据
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
-          )}
+          <div className="flex space-x-6">
+            <Button 
+              type="text" 
+              icon={<LineChartOutlined className="text-blue-300" />}
+              className="text-blue-200 hover:text-white"
+            >
+              系统监控
+            </Button>
+            <Button 
+              type="text" 
+              icon={<CloudServerOutlined className="text-blue-300" />}
+              className="text-blue-200 hover:text-white"
+            >
+              服务器状态
+            </Button>
+          </div>
         </div>
-      </main>
+        
+        <div className="flex items-center">
+          <div className="mr-4 text-right">
+            <Text className="text-blue-200 block">管理员</Text>
+            <Text strong className="text-white">{userInfo.username}</Text>
+          </div>
+          <Avatar 
+            size="large" 
+            src={userInfo.avatar} 
+            icon={<UserOutlined />}
+            className="bg-gradient-to-r from-cyan-500 to-blue-500"
+          />
+        </div>
+      </Header>
+      
+      <Content className="p-6">
+        {/* 数据统计卡片 */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <Card className="bg-blue-900/50 border border-blue-700/50 backdrop-blur-sm">
+            <Statistic
+              title={<span className="text-blue-300">用户总数</span>}
+              value={stats.totalUsers || 0}
+              valueStyle={{ color: '#fff' }}
+              prefix={<TeamOutlined className="text-blue-300" />}
+            />
+          </Card>
+          
+          <Card className="bg-blue-900/50 border border-blue-700/50 backdrop-blur-sm">
+            <Statistic
+              title={<span className="text-blue-300">活跃用户</span>}
+              value={stats.activeUsers || 0}
+              valueStyle={{ color: '#fff' }}
+              prefix={<CheckCircleOutlined className="text-green-400" />}
+            />
+          </Card>
+          
+          <Card className="bg-blue-900/50 border border-blue-700/50 backdrop-blur-sm">
+            <Statistic
+              title={<span className="text-blue-300">今日登录</span>}
+              value={stats.todayLogins || 0}
+              valueStyle={{ color: '#fff' }}
+              prefix={<HistoryOutlined className="text-blue-300" />}
+            />
+          </Card>
+          
+          <Card className="bg-blue-900/50 border border-blue-700/50 backdrop-blur-sm">
+            <Statistic
+              title={<span className="text-blue-300">系统状态</span>}
+              value="运行中"
+              valueStyle={{ color: '#52c41a' }}
+              prefix={<CheckCircleOutlined className="text-green-400" />}
+            />
+          </Card>
+        </div>
+        
+        <Card 
+          className="bg-blue-900/30 border border-blue-700/30 backdrop-blur-sm"
+          bodyStyle={{ padding: 0 }}
+        >
+          <Tabs 
+            activeKey={activeTab}
+            onChange={setActiveTab}
+            className="custom-admin-tabs"
+            tabBarStyle={{ 
+              padding: '0 24px', 
+              background: 'linear-gradient(90deg, rgba(0,21,41,0.8) 0%, rgba(0,33,64,0.8) 100%)',
+              margin: 0
+            }}
+          >
+            <TabPane 
+              tab={
+                <span className="text-blue-200 flex items-center">
+                  <TeamOutlined className="mr-2" /> 用户管理
+                </span>
+              } 
+              key="users"
+            >
+              <div className="p-6">
+                {loading ? (
+                  <div className="flex justify-center items-center h-64">
+                    <Spin size="large" tip="加载用户数据..." />
+                  </div>
+                ) : error ? (
+                  <Alert message={error} type="error" showIcon />
+                ) : (
+                  <Table 
+                    columns={userColumns}
+                    dataSource={users}
+                    rowKey="_id"
+                    rowClassName="cursor-pointer hover:bg-blue-800/20"
+                    onRow={(record) => ({
+                      onClick: () => setEditingUser(record),
+                    })}
+                    pagination={{ 
+                      pageSize: 8, 
+                      showSizeChanger: false,
+                      className: 'custom-pagination'
+                    }}
+                    locale={{
+                      emptyText: (
+                        <div className="py-12 text-center">
+                          <div className="text-blue-300 mb-2">没有用户数据</div>
+                          <Button type="primary">添加新用户</Button>
+                        </div>
+                      )
+                    }}
+                  />
+                )}
+              </div>
+            </TabPane>
+            
+            <TabPane 
+              tab={
+                <span className="text-blue-200 flex items-center">
+                  <HistoryOutlined className="mr-2" /> 系统日志
+                </span>
+              } 
+              key="logs"
+            >
+              <div className="p-6">
+                {loading ? (
+                  <div className="flex justify-center items-center h-64">
+                    <Spin size="large" tip="加载日志数据..." />
+                  </div>
+                ) : error ? (
+                  <Alert message={error} type="error" showIcon />
+                ) : (
+                  <Table 
+                    columns={logColumns}
+                    dataSource={logs}
+                    rowKey="_id"
+                    pagination={{ 
+                      pageSize: 8, 
+                      showSizeChanger: false,
+                      className: 'custom-pagination'
+                    }}
+                    locale={{
+                      emptyText: (
+                        <div className="py-12 text-center">
+                          <div className="text-blue-300 mb-2">没有日志数据</div>
+                          <Text type="secondary">系统运行日志将显示在这里</Text>
+                        </div>
+                      )
+                    }}
+                  />
+                )}
+              </div>
+            </TabPane>
+          </Tabs>
+        </Card>
+      </Content>
+      
       {editingUser && (
-      <UserEditModal
-        user={editingUser}
-        onClose={() => setEditingUser(null)}
-        onSave={handleSaveUser}
-      />
-    )}
-    </div>
+        <UserEditModal
+          user={editingUser}
+          onClose={() => setEditingUser(null)}
+          onSave={handleSaveUser}
+        />
+      )}
+      
+      <style jsx global>{`
+        .custom-admin-tabs .ant-tabs-nav::before {
+          border-bottom: 1px solid rgba(24, 144, 255, 0.3) !important;
+        }
+        
+        .custom-admin-tabs .ant-tabs-tab {
+          padding: 16px 0 !important;
+          margin: 0 20px !important;
+          color: rgba(255, 255, 255, 0.65) !important;
+        }
+        
+        .custom-admin-tabs .ant-tabs-tab-active {
+          color: #1890ff !important;
+        }
+        
+        .custom-admin-tabs .ant-tabs-ink-bar {
+          background: #1890ff;
+          height: 3px !important;
+        }
+        
+        .custom-admin-tabs .ant-tabs-tab:hover {
+          color: #1890ff !important;
+        }
+        
+        .ant-table {
+          background: transparent !important;
+          color: rgba(255, 255, 255, 0.85) !important;
+        }
+        
+        .ant-table-thead > tr > th {
+          background: rgba(0, 33, 64, 0.5) !important;
+          border-bottom: 1px solid rgba(24, 144, 255, 0.3) !important;
+          color: #8dc6ff !important;
+        }
+        
+        .ant-table-tbody > tr > td {
+          border-bottom: 1px solid rgba(24, 144, 255, 0.15) !important;
+          background: rgba(0, 33, 64, 0.2) !important;
+        }
+        
+        .ant-table-tbody > tr.ant-table-row:hover > td {
+          background: rgba(24, 144, 255, 0.1) !important;
+        }
+        
+        .custom-pagination .ant-pagination-item,
+        .custom-pagination .ant-pagination-prev,
+        .custom-pagination .ant-pagination-next {
+          background: rgba(0, 33, 64, 0.3) !important;
+          border: 1px solid rgba(24, 144, 255, 0.2) !important;
+          color: #8dc6ff !important;
+        }
+        
+        .custom-pagination .ant-pagination-item a {
+          color: #8dc6ff !important;
+        }
+        
+        .custom-pagination .ant-pagination-item-active {
+          background: #1890ff !important;
+          border-color: #1890ff !important;
+        }
+        
+        .custom-pagination .ant-pagination-item-active a {
+          color: white !important;
+        }
+        
+        .ant-tag {
+          background: rgba(24, 144, 255, 0.15) !important;
+          color: #8dc6ff !important;
+          border: none !important;
+          border-radius: 4px !important;
+          padding: 2px 8px !important;
+        }
+        
+        .ant-statistic-title {
+          color: #8dc6ff !important;
+        }
+        
+        .ant-statistic-content {
+          color: white !important;
+        }
+      `}</style>
+    </Layout>
   );
 };
 

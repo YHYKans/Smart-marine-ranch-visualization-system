@@ -7,11 +7,13 @@ import DashboardLayout from './pages/DashboardLayout';
 import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Underwater from './pages/Underwater';
-import AICenter from './pages/AICenter';
 import FishVisualization from './pages/FishVisualization';
 import Weather from './pages/Weather';
 import Video from './pages/Video';
 import FishLengthPredictionPage from './pages/FishLengthPredictionPage';
+import FishRecognition from './pages/FishRecognitionPage';
+import Chat from './pages/ChatPage';
+import Check from './pages/Check';
 
 function App() {
   return (
@@ -27,12 +29,10 @@ function App() {
             <Route path="/fish" element={<FishVisualization />} />
             <Route path="/weather" element={<Weather />} />
             <Route path="/video" element={<Video />} />
+            <Route path="/FishRecognition" element={<FishRecognition />} />
+            <Route path="/Chat" element={<Chat />} />
+            <Route path="/Check" element={<Check />} />
             <Route path="/fish-length-prediction" element={<FishLengthPredictionPage />} />
-            <Route path="/ai-center" element={
-              <ProtectedRoute requireAdmin>
-                <AICenter />
-              </ProtectedRoute>
-            } />
             <Route path="/admin-dashboard" element={
               <ProtectedRoute requireAdmin>
                 <AdminDashboard />

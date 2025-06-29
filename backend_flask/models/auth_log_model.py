@@ -1,27 +1,25 @@
 """
-AuthLog模型
-用于记录用户认证相关的操作日志，如登录、注册、登出和密码重置
+AuthLog模型（适配MySQL）
+用于记录用户认证相关的操作日志
 """
 
-from datetime import datetime, timedelta
-from config.database import get_db
+from datetime import datetime
+import mysql.connector
+from config.database import get_db_connection
+from models.user import User  # 导入修改后的User模型
 
 class AuthLog:
-    collection = None
+    table_name = "auth_logs"
     
     @classmethod
-    def get_collection(cls):
-        """获取日志集合"""
-        if cls.collection is None:
-            cls.collection = get_db().auth_logs
-        return cls.collection
+    def get_connection(cls):
+        """获取数据库连接"""
+        return get_db_connection()
     
     @staticmethod
     def create_indexes():
-        """创建必要的索引"""
-        AuthLog.get_collection().create_index('username')
-        AuthLog.get_collection().create_index('timestamp')
-        AuthLog.get_collection().create_index('successful')
+        """创建必要的索引（MySQL中通过DDL创建，此处仅为兼容）"""
+        pass
     
     @classmethod
     def create(cls, username, action, user_type, successful, ip_address=None, user_agent=None, failure_reason=None):
@@ -38,7 +36,7 @@ class AuthLog:
             failure_reason (str, optional): 失败原因
         
         Returns:
-            str: 日志ID
+            int: 日志ID
         """
         # 验证数据
         if action not in ['login', 'register', 'logout', 'password_reset']:
@@ -47,21 +45,43 @@ class AuthLog:
         if user_type not in ['user', 'admin']:
             raise ValueError("无效的用户类型")
         
-        # 创建日志文档
-        log = {
-            'username': username,
-            'action': action,
-            'userType': user_type,
-            'timestamp': datetime.now(),
-            'successful': successful,
-            'ipAddress': ip_address,
-            'userAgent': user_agent,
-            'failureReason': failure_reason
-        }
+        conn = cls.get_connection()
+        cursor = conn.cursor()
         
-        # 插入数据库并返回ID
-        result = cls.get_collection().insert_one(log)
-        return str(result.inserted_id)
+        try:
+            # 获取用户ID
+            user = User.find_by_username(username)
+            if not user:
+                raise ValueError(f"用户 {username} 不存在")
+            
+            user_id = user['user_id']
+            
+            # 插入日志
+            cursor.execute(
+                "INSERT INTO auth_logs (user_id, username, action, user_type, successful, ip_address, user_agent, failure_reason) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                (
+                    user_id,
+                    username,
+                    action,
+                    user_type,
+                    1 if successful else 0,
+                    ip_address,
+                    user_agent,
+                    failure_reason
+                )
+            )
+            conn.commit()
+            log_id = cursor.lastrowid
+            cursor.close()
+            conn.close()
+            return log_id
+            
+        except mysql.connector.Error as err:
+            conn.rollback()
+            cursor.close()
+            conn.close()
+            raise err
     
     @classmethod
     def get_recent_logs(cls, username=None, limit=100):
@@ -75,18 +95,28 @@ class AuthLog:
         Returns:
             list: 日志列表
         """
-        query = {} if username is None else {'username': username}
-        logs = list(cls.get_collection().find(
-            query,
-            sort=[('timestamp', -1)],
-            limit=limit
-        ))
+        conn = cls.get_connection()
+        cursor = conn.cursor(dictionary=True)
         
-        # 转换ObjectId和日期为字符串，以便JSON序列化
+        query = "SELECT * FROM auth_logs"
+        params = []
+        
+        if username:
+            query += " WHERE username = %s"
+            params.append(username)
+        
+        query += " ORDER BY timestamp DESC LIMIT %s"
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        logs = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        # 转换布尔值和时间格式
         for log in logs:
-            log['_id'] = str(log['_id'])
+            log['successful'] = bool(log['successful'])
             log['timestamp'] = log['timestamp'].isoformat()
-        
         return logs
     
     @classmethod
@@ -101,14 +131,19 @@ class AuthLog:
         Returns:
             int: 失败尝试次数
         """
-        # 计算时间阈值（当前时间减去指定的小时数）
-        time_threshold = datetime.now() - timedelta(hours=time_window)
+        conn = cls.get_connection()
+        cursor = conn.cursor()
         
-        # 查询失败尝试
-        count = cls.get_collection().count_documents({
-            'username': username,
-            'successful': False,
-            'timestamp': {'$gte': time_threshold}
-        })
+        # 计算时间阈值
+        time_threshold = (datetime.now() - datetime.timedelta(hours=time_window)).isoformat()
+        
+        cursor.execute(
+            "SELECT COUNT(*) FROM auth_logs "
+            "WHERE username = %s AND successful = 0 AND timestamp >= %s",
+            (username, time_threshold)
+        )
+        count = cursor.fetchone()[0]
+        cursor.close()
+        conn.close()
         
         return count
